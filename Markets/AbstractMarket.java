@@ -58,7 +58,45 @@ public abstract class AbstractMarket {
 		}
 	}
 	
-	public Map<Integer, AbstractAgent> getAgentIDList()
+	public void cancelOrders() {}
+	
+	public void displayOrderBook()
+	{
+		Map<String, Map<String, PriorityQueue<OrderInfo>>> orderbook = getOrderBook();
+		Set<String> products = orderbook.keySet();
+	
+		for(String product : products)
+		{
+			System.out.println(product + ":");
+			
+			Map<String, PriorityQueue<OrderInfo>> productbook = orderbook.get(product);
+		
+			System.out.println("buy orders");
+			PriorityQueue<OrderInfo> buyQueue = productbook.get("buy");
+			for(OrderInfo buy : buyQueue)
+			{
+				System.out.println(buy.getAgentID() + "\t" + buy.getOrder().getProductQuantity() + "\t" + buy.getOrder().getProductPrice());
+			}
+			
+			System.out.println("\n\nsell orders");
+			PriorityQueue<OrderInfo> sellQueue = productbook.get("sell");
+			for(OrderInfo sell : sellQueue)
+			{
+				System.out.println(sell.getAgentID() + "\t" + sell.getOrder().getProductQuantity() + "\t" + sell.getOrder().getProductPrice());
+			}
+		
+			System.out.println("\n\ncancel orders");
+			PriorityQueue<OrderInfo> cancelQueue = productbook.get("cancel");
+			for(OrderInfo sell : cancelQueue)
+			{
+				System.out.println(sell.getAgentID() + "\t" + sell.getOrder().getProductQuantity() + "\t" + sell.getOrder().getProductPrice());
+			}
+			
+			System.out.println("\n\n\n"); //Spacing between products
+		}		
+	}
+
+	protected Map<Integer, AbstractAgent> getAgentIDList()
 	{
 		return this.agentIDList;
 	}
@@ -68,14 +106,20 @@ public abstract class AbstractMarket {
 		return this.orderbook;
 	}
 	
+	public void setProductBook(String productName, Map<String, PriorityQueue<OrderInfo>> productBook)
+	{
+		orderbook.put(productName, productBook);
+	}
+	
 	//loop that runs every round of market activity
 	public void marketLoop()
 	{
 		for(int i = 1; i <= agentIDList.size(); i++ )
 		{
 			receiveOrderDetails(agentIDList.get(i).sendOrderDetails(), i);
-			processOrders();
 		}
+		cancelOrders();
+		processOrders();
 		
 		for(AbstractAgent agent : agents)
 		{
@@ -98,6 +142,13 @@ public abstract class AbstractMarket {
 	
 	private void receiveOrderDetails(Order[] orders, int agentID)
 	{
+		if(orders == null)
+		{
+			test.println("orders is null");
+			return;
+		}
+		
+		int numOfOrder = 1;
 		for(Order order : orders)
 		{
 			OrderInfo orderInfo = new OrderInfo(order, agentID, order.getOrderID());
@@ -115,9 +166,9 @@ public abstract class AbstractMarket {
 			orderTypeList.add(orderInfo);
 			
 			//Might not be necessary, but why risk it?
-			test.println("type: " + orderType);
 			orderList.put(orderType, orderTypeList);
 			orderbook.put(order.getProductName(), orderList); 
+		
 		}
 	}
 }

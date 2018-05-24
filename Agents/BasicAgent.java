@@ -1,16 +1,17 @@
-package Agents;
+package MarketBots.Agents;
 
-import Markets.Order;
-import Products.*;
-import Testing.*;
+import MarketBots.Markets.Order;
+import MarketBots.Products.*;
+import MarketBots.Testing.*;
 
 import java.util.*;
 
-public class BasicAgent extends AbstractAgent{
-	
-	Output test = new Output();
+public class BasicAgent implements AbstractAgentInterface
+{
+	private double balance;
 	int orderID;
 	Map<String, Integer> productInventory;
+	Output test = new Output();
 	
 	public BasicAgent(double balance, String[] products)
 	{
@@ -24,8 +25,6 @@ public class BasicAgent extends AbstractAgent{
 	
 	public void closingActions()
 	{
-		test.println("Apples: " + productInventory.get("Apple"));
-		test.println("balance: " + getBalance());
 	}
 	
 	public int getItemInventory(String productName)
@@ -33,42 +32,35 @@ public class BasicAgent extends AbstractAgent{
 		return productInventory.get(productName);
 	}
 	
+	public void decreaseBalance(double decreaseAmount)
+	{
+		this.balance -= decreaseAmount;
+	}
+	
+	public double getBalance() 
+	{
+		return this.balance;
+	}
+	
+	public void increaseBalance(double increaseAmount)
+	{
+		this.balance += increaseAmount;
+	}
+	
 	//Called during agent interaction stage
-	public void interact() {} 
-	
-	//Called if order has been filled
-	public void receiveInventoryChange() {} 
-	
-	int x = 0;
-	//Called for bid/offer stage
-	public Order[] sendOrderDetails()
-	{
-		int orderType;
-		int orderNum;
-		
-		if(getBalance() > 1000) 
-		{
-			orderID++;
-			orderType = 1;
-			orderNum = (int) Math.rint(.25 * (getBalance()));
-			
-		} else if(productInventory.get("Apple") > 0)
-		{
-			orderNum = productInventory.get("Apple");
-			orderType = 0;
-			
-		} else return null;
-		
-		Order order = new Order(new Apple(), orderNum, 5.0, orderType, orderID);
-		Order[] orders = new Order[1];
-		orders[0] = order;
+	public void interact() {}  
 
-		return orders;
-	} 
-	
-	public boolean receiveInventoryChange(String productName, int amountTraded, double balanceChange)
+	public void otherActions() {}
+
+	public void receive(String msg) 
 	{
-		System.out.println("recieveInventoryChange: " + productName + "  " + amountTraded + "  " + balanceChange);
+		
+	}
+	
+	public boolean receiveInventoryChange(String productName, int amountTraded, double balanceChange, int orderID)
+	{
+		Output.testln("Trade: " + productName + " " + amountTraded);
+		
 		int currentQuantity = productInventory.get(productName);
 		if(currentQuantity + amountTraded < 0) return false;
 		
@@ -80,17 +72,28 @@ public class BasicAgent extends AbstractAgent{
 		
 		return true;
 	}
+	
+	public void setBalance(double balance) 
+	{
+		this.balance = balance;
+	}
+	
+	public void setCurrentTrade(String productName, double price,
+			int tradeVolume) {
+		
+	}
 
 	public void setItemInventory(String productName, int amount)
 	{
 		productInventory.put(productName, amount);
 	}
+
+	//Called for bid/offer stage
+	public Order[] sendOrderDetails()
+	{
+		return new Order[0];
+	}
 	
 	//called for update accounting stage
 	public void updateAccounting() {} 
-	
-	public void otherActions()
-	{
-		
-	}
 }

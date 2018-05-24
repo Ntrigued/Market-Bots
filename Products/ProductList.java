@@ -1,4 +1,4 @@
-package Products;
+package MarketBots.Products;
 
 public class ProductList {
 

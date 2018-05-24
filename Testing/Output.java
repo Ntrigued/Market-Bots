@@ -1,26 +1,36 @@
-package Testing;
+package MarketBots.Testing;
 
 public class Output {
 
-	boolean testing = true;
+	static boolean testing = true;
 	
-	public void println(Object s)
-	{
-		if(testing) System.out.println(s);
-	}
-	
-	public void print(Object s)
-	{
-		if(testing) System.out.print(s);
-	}
-	
-	public void errorln(Object s)
+	public static void errorln(Object s)
 	{
 		if(testing) System.err.println(s);
 	}
 	
-	public void error(Object s)
+	public static void error(Object s)
 	{
 		if(testing) System.err.print(s);
+	}
+	
+	public static void println(Object s)
+	{
+		System.out.println(s);
+	}
+	
+	public static void print(Object s)
+	{
+		System.out.print(s);
+	}
+	
+	public static void test(Object s)
+	{
+		if(testing) System.out.print(s);
+	}
+
+	public static void testln(Object s)
+	{
+		if(testing) System.out.println(s);
 	}
 }

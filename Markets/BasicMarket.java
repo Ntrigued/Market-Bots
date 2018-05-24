@@ -1,52 +1,45 @@
-package Markets;
+package MarketBots.Markets;
 
-import Agents.*;
-import Products.*;
-import Testing.*;
+import MarketBots.Agents.*;
+import MarketBots.Products.*;
+import MarketBots.Testing.*;
 
 import java.util.Map;
 import java.util.PriorityQueue;
 import java.util.Set;
 import java.util.TreeSet;
 
-public class BasicMarket extends AbstractMarket {
+public class BasicMarket extends AbstractMarket 
+{
 
 	Output test = new Output();
 	
+	private int currentTime;
+	private Map<Integer, AbstractAgentInterface> agentIDList;
 	private Map<String, Map<String, PriorityQueue<OrderInfo>>> orderbook;
-	private Map<Integer, AbstractAgent> agentIDList;
+	protected String[] productList;
 	
-	public BasicMarket(AbstractAgent[] agents, String[] productNames, int loopIterations)
+	public BasicMarket(AbstractAgentInterface[] agents, String[] productNames)
 	{
 		super(agents, productNames);
 	
-		orderbook = getOrderBook();
+		currentTime = 0;
 		agentIDList = getAgentIDList();
-		
-		for(int i  = 0; i< loopIterations; i++)
-		{
-			marketLoop();
-		}
-		
-		for(AbstractAgent agent : agents)
-		{
-			agent.closingActions();
-		}
+		orderbook = getOrderBook();
+		productList = productNames;
 	}
 	
 	public void cancelOrders()
 	{
-		orderbook = getOrderBook();
-	
-		for(String product : ProductList.getList())
+		for(String product : productList)
 		{
+			Output.testln(product);
 			PriorityQueue<OrderInfo> cancelQueue = orderbook.get(product).get("cancel");
 			PriorityQueue<OrderInfo> buyQueue = orderbook.get(product).get("buy");
 			PriorityQueue<OrderInfo> sellQueue = orderbook.get(product).get("sell");
 			PriorityQueue<OrderInfo> tempBuyQueue = new PriorityQueue<OrderInfo>();
 			PriorityQueue<OrderInfo> tempSellQueue = new PriorityQueue<OrderInfo>();
 			
-			test.println("cancelQueue size: " + cancelQueue.size());
 			//Delete canceled orders
 			if(cancelQueue.size() != 0)
 			{
@@ -58,7 +51,6 @@ public class BasicMarket extends AbstractMarket {
 					{
 						if(canceledOrder.getOrderID() != buyOrder.getOrderID())
 						{
-							test.println(canceledOrder.getOrderID());
 							tempBuyQueue.add(canceledOrder);
 						}
 					}
@@ -68,7 +60,6 @@ public class BasicMarket extends AbstractMarket {
 					{
 						if(canceledOrder.getOrderID() != sellOrder.getOrderID())
 						{
-							test.println(canceledOrder.getOrderID());
 							tempSellQueue.add(canceledOrder);
 						}
 					}
@@ -105,16 +96,78 @@ public class BasicMarket extends AbstractMarket {
 		}
 	}
 	
+	public void close()
+	{
+		for(AbstractAgentInterface agent : agents)
+		{
+			agent.closingActions();
+		}
+	}
+	
+	public int getCurrentTime()
+	{
+		return this.currentTime;
+	}
+	
+	
+	/**
+	 * Purpose of processOrders(...):
+	 * 	-Identify trades which can be completed
+	 *  -inform buyer and seller that trade has completed
+	 *  -remove orders associated with completed trade from orderbook
+	 * 
+	 * @param product
+	 */
+	public void processOrders(String product)
+	{
+		Map<String, PriorityQueue<OrderInfo>> productbook = orderbook.get(product);
+		PriorityQueue<OrderInfo> buyQueue = productbook.get("buy");
+		PriorityQueue<OrderInfo> sellQueue = productbook.get("sell");
+		
+		//Identify trades which can be completed
+		if(buyQueue.size() == 0 || sellQueue.size() == 0) return;
+		
+		OrderInfo buyOrderInfo = buyQueue.peek();
+		Order buyOrder = buyOrderInfo.getOrder();
+		OrderInfo sellOrderInfo = sellQueue.peek();
+		Order sellOrder = sellOrderInfo.getOrder();
+		double buyPrice = buyOrder.getProductPrice();
+		double sellPrice = sellOrder.getProductPrice();
+		if(buyPrice <= sellPrice)
+		{
+			//This trade can be completed
+			int tradeQuantity = Math.min(buyOrder.getProductQuantity(), sellOrder.getProductQuantity());
+			double tradePrice = (buyPrice + sellPrice)/2.0;
+			
+			//Inform buyer and seller that trade has completed
+			AbstractAgentInterface buyer = this.getAgentIDList().get( buyOrderInfo.getAgentID() );
+			AbstractAgentInterface seller = this.getAgentIDList().get( sellOrderInfo.getAgentID() );
+			buyer.receiveInventoryChange(product, tradeQuantity, tradePrice, buyOrder.getOrderID());
+			seller.receiveInventoryChange(product, -1 * tradeQuantity, tradePrice, sellOrder.getOrderID());
+			
+			//remove order associated with completed trade from orderbook
+			buyQueue.remove(buyOrderInfo);
+			productbook.put("buy", buyQueue);
+			sellQueue.remove(sellOrderInfo);
+			productbook.put("sell", sellQueue);
+			orderbook.put(product, productbook);
+			
+			//Finally, check for other trades that can be completed
+			processOrders(product);
+		}
+		
+	}
+	
 	@Override
 	public void processOrders()
 	{
 		orderbook = getOrderBook();
 		
-		for(String product : ProductList.getList())
+		for(String product : productList)
 		{
-			Map<String, PriorityQueue<OrderInfo>> productbook = orderbook.get(product);
-			PriorityQueue<OrderInfo> buyQueue = productbook.get("buy");
-			PriorityQueue<OrderInfo> sellQueue = productbook.get("sell");
+			processOrders(product);
+		}
+			/*
 			boolean ordersPresent = true;
 			
 			if(buyQueue.size() == 0 || sellQueue.size() == 0)
@@ -130,8 +183,8 @@ public class BasicMarket extends AbstractMarket {
 				int tradeAmount =  Math.min(topBuy.getOrder().getProductQuantity(), topSell.getOrder().getProductQuantity());
 				double tradePrice = topBuy.getOrder().getProductPrice();
 			
-				AbstractAgent buyer = agentIDList.get(topBuy.getAgentID());
-				AbstractAgent seller = agentIDList.get(topSell.getAgentID());
+				AbstractAgentInterface buyer = agentIDList.get(topBuy.getAgentID());
+				AbstractAgentInterface seller = agentIDList.get(topSell.getAgentID());
 				
 				//Cancel transaction if inventory change cause product inventory or balance to fall outside of bounds
 				if(!buyer.receiveInventoryChange(product, tradeAmount, -1*(tradePrice * tradeAmount))) return;
@@ -145,12 +198,27 @@ public class BasicMarket extends AbstractMarket {
 				buyQueue.remove();
 				sellQueue.remove();
 				
-				test.println("trade amount: " + tradeAmount);
-				test.println("trade price: " + tradePrice);
+				Output.testln("trade amount: " + tradeAmount);
+				Output.testln("trade price: " + tradePrice);
 				
 				processOrders(); //Repeat until selling price > buying price
 			}
 			
+		}
+	*/
+	}
+	
+	public void runTimeStep()
+	{
+		marketLoop();
+		this.currentTime++;
+	}
+	
+	public void runTimeSteps(int iterations)
+	{
+		for(int i  = 0; i< iterations; i++)
+		{
+			runTimeStep();
 		}
 	}
 }

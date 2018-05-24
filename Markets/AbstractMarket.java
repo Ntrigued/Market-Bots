@@ -1,27 +1,34 @@
-package Markets;
+package MarketBots.Markets;
 
-import Agents.*;
-import Products.*;
-import Testing.*;
+import MarketBots.Markets.*;
+import MarketBots.Agents.*;
+import MarketBots.Products.*;
+import MarketBots.Testing.*;
 
 import java.util.*;
 
-public abstract class AbstractMarket {
+public abstract class AbstractMarket
+{
+	public abstract void close(); // perform closing actions on market
+	public abstract void cancelOrders();
+	public abstract void processOrders(); //handles orders after they have been sent to their respective queue in orderbook
+	public abstract void runTimeStep();
+	public abstract void runTimeSteps(int iterations);
 
 	Output test = new Output();
 	
-	AbstractAgent[] agents;
+	AbstractAgentInterface[] agents;
 
 	private Map<String, Map<String, PriorityQueue<OrderInfo>>> orderbook;
-	private Map<Integer, AbstractAgent> agentIDList;
+	private Map<Integer, AbstractAgentInterface> agentIDList;
 	
-	public AbstractMarket(AbstractAgent[] agents, String[] productNames)
+	public AbstractMarket(AbstractAgentInterface[] agents, String[] productNames)
 	{
 		this.agents = agents;
 		
 		int key = 1;
-		agentIDList = new HashMap<Integer, AbstractAgent>();
-		for(AbstractAgent agent : this.agents)
+		agentIDList = new HashMap<Integer, AbstractAgentInterface>();
+		for(AbstractAgentInterface agent : this.agents)
 		{
 			agentIDList.put(key, agent);
 			key++;
@@ -31,7 +38,6 @@ public abstract class AbstractMarket {
 		
 		Comparator<OrderInfo> orderCompare = new Comparator<OrderInfo>()
 		{
-			@Override
 			public int compare(OrderInfo one, OrderInfo two)
 			{
 				if(one.getOrder().getProductPrice() > two.getOrder().getProductPrice())
@@ -58,7 +64,14 @@ public abstract class AbstractMarket {
 		}
 	}
 	
-	public void cancelOrders() {}
+	public void addAgent(AbstractAgentInterface newAgent)
+	{
+		AbstractAgentInterface[] temp = this.agents;
+		this.agents = new AbstractAgentInterface[this.agents.length + 1];
+		for(int i = 0; i < temp.length; i++) 
+			this.agents[i] = temp[i];
+		this.agents[ this.agents.length - 1 ] = newAgent;
+	}
 	
 	public void displayOrderBook()
 	{
@@ -96,7 +109,7 @@ public abstract class AbstractMarket {
 		}		
 	}
 
-	protected Map<Integer, AbstractAgent> getAgentIDList()
+	protected Map<Integer, AbstractAgentInterface> getAgentIDList()
 	{
 		return this.agentIDList;
 	}
@@ -121,24 +134,23 @@ public abstract class AbstractMarket {
 		cancelOrders();
 		processOrders();
 		
-		for(AbstractAgent agent : agents)
+		for(AbstractAgentInterface agent : agents)
 		{
 			agent.interact();
 		}
 		
-		for(AbstractAgent agent : agents)
+		AbstractProduct.registerTimeStep();
+		
+		for(AbstractAgentInterface agent : agents)
 		{
 			agent.updateAccounting();
 		}
 		
-		for(AbstractAgent agent: agents)
+		for(AbstractAgentInterface agent: agents)
 		{
 			agent.otherActions();
 		}
 	}
-	
-	//handles orders after they have been sent to their respective queue in orderbook
-	public void processOrders() {}
 	
 	private void receiveOrderDetails(Order[] orders, int agentID)
 	{
@@ -148,9 +160,14 @@ public abstract class AbstractMarket {
 			return;
 		}
 		
+		System.out.println(agentID);
+		
 		int numOfOrder = 1;
 		for(Order order : orders)
 		{
+			if(order.getProductQuantity() <= 0)
+				continue;
+			
 			OrderInfo orderInfo = new OrderInfo(order, agentID, order.getOrderID());
 			Map<String, PriorityQueue<OrderInfo>> orderList = orderbook.get(order.getProductName());
 		
@@ -171,4 +188,5 @@ public abstract class AbstractMarket {
 		
 		}
 	}
+	
 }

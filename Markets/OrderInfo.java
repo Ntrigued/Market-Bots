@@ -1,6 +1,7 @@
-package Markets;
+package MarketBots.Markets;
 
-public class OrderInfo {
+public class OrderInfo 
+{
 
 	private final Order order;
 	private final int agentID;

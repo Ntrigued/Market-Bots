@@ -1,8 +1,9 @@
-package Markets;
+package MarketBots.Markets;
 
-import Products.*;
+import MarketBots.Products.*;
 
-public class Order {
+public class Order 
+{
 	private final String productName;
 	private final int productQuantity;
 	private final double productPrice;
@@ -34,6 +35,17 @@ public class Order {
 		this.productQuantity = quantity;
 		this.productPrice = price;
 		this.orderType = orderType;
+		this.orderID = orderID;
+	}
+	
+	public Order(String productName, int quantity, double price, String orderType, int orderID) //orderType= {"buy", "sell", "cancel"}
+	{
+		this.productName = productName;
+		this.productQuantity = quantity;
+		this.productPrice = price;
+		if(orderType.equals("buy")) this.orderType = 1;
+		else if(orderType.equals("sell")) this.orderType = 0;
+		else this.orderType = -1;
 		this.orderID = orderID;
 	}
 	

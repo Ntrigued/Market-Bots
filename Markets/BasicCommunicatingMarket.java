@@ -1,28 +1,98 @@
-package Markets;
+package MarketBots.Markets;
 
 import java.util.*;
-import java.util.Set;
 
-import Agents.AbstractAgent;
-import Products.ProductList;
+import MarketBots.Agents.*;
+import MarketBots.Products.ProductList;
+import MarketBots.Testing.Output;
 
 public class BasicCommunicatingMarket extends BasicMarket {
 
-	public BasicCommunicatingMarket(AbstractAgent[] agents, String[] productNames, int loopIterations) {
-		super(agents, productNames, loopIterations);
+	public BasicCommunicatingMarket(AbstractAgentInterface[] agents, String[] productNames) 
+	{
+		super(agents, productNames);
 	}
 	
 	public String[] getProductList()
 	{
-		return ProductList.getList();
+		return this.productList;
 	}
 	
+	/**
+	 * Purpose of processOrders(...):
+	 * 	-Identify trades which can be completed
+	 *  -inform buyer and seller that trade has completed
+	 *  -remove orders associated with completed trade from orderbook
+	 *  -Inform all agents which implement MemoryAgentInterface that a trade has completed
+	 * 
+	 * @param product
+	 */
+	public void processOrders(String product)
+	{
+		Map<String, PriorityQueue<OrderInfo>> productbook = getOrderBook().get(product);
+		PriorityQueue<OrderInfo> buyQueue = productbook.get("buy");
+		PriorityQueue<OrderInfo> sellQueue = productbook.get("sell");
+		
+		//Identify trades which can be completed
+		if(buyQueue.size() == 0 || sellQueue.size() == 0) return;
+		
+		OrderInfo buyOrderInfo = buyQueue.peek();
+		Order buyOrder = buyOrderInfo.getOrder();
+		OrderInfo sellOrderInfo = sellQueue.peek();
+		Order sellOrder = sellOrderInfo.getOrder();
+		double buyPrice = buyOrder.getProductPrice();
+		double sellPrice = sellOrder.getProductPrice();
+		if(buyPrice <= sellPrice)
+		{
+			//This trade can be completed
+			int tradeQuantity = Math.min(buyOrder.getProductQuantity(), sellOrder.getProductQuantity());
+			double tradePrice = (buyPrice + sellPrice)/2.0;
+			
+			//Inform buyer and seller that trade has completed
+			AbstractAgentInterface buyer = this.getAgentIDList().get( buyOrderInfo.getAgentID() );
+			AbstractAgentInterface seller = this.getAgentIDList().get( sellOrderInfo.getAgentID() );
+			buyer.receiveInventoryChange(product, tradeQuantity, tradePrice, buyOrder.getOrderID());
+			seller.receiveInventoryChange(product, -1 * tradeQuantity, tradePrice, sellOrder.getOrderID());
+			
+			//remove order associated with completed trade from orderbook
+			buyQueue.remove(buyOrderInfo);
+			productbook.put("buy", buyQueue);
+			sellQueue.remove(sellOrderInfo);
+			productbook.put("sell", sellQueue);
+			getOrderBook().put(product, productbook);
+			
+			//Inform all agents that implement MemoryAgentInterface that a trade has completed
+			Set<Integer> agentIDs = getAgentIDList().keySet();
+			for(Integer agentID : agentIDs)
+			{
+				AbstractAgentInterface agent = getAgentIDList().get(agentID);
+				if(agent instanceof MemoryAgentInterface)
+					agent.setCurrentTrade(product, tradePrice, tradeQuantity);
+			}
+			
+			Output.testln(tradeQuantity);
+			//Finally, check for other trades that can be completed
+			processOrders(product);
+		}
+		
+	}
+	
+	@Override
+	public void processOrders()
+	{		
+		for(String product : productList)
+		{
+			processOrders(product);
+		}
+	}
+	
+	/*
 	@Override
 	public void processOrders()
 	{
 		Map<String, Map<String, PriorityQueue<OrderInfo>>> orderbook = getOrderBook();
 		
-		for(String product : ProductList.getList())
+		for(String product : getProductList())
 		{
 			Map<String, PriorityQueue<OrderInfo>> productbook = orderbook.get(product);
 			PriorityQueue<OrderInfo> buyQueue = productbook.get("buy");
@@ -31,7 +101,7 @@ public class BasicCommunicatingMarket extends BasicMarket {
 			
 			if(buyQueue.size() == 0 && sellQueue.size() == 0) 
 			{
-				test.println("processOrders: no orders for " + product + " were submitted");
+			//	test.testln("processOrders: no orders for " + product + " were submitted");
 			}
 			
 			OrderInfo topBuy = buyQueue.peek();
@@ -44,8 +114,8 @@ public class BasicCommunicatingMarket extends BasicMarket {
 					int tradeAmount =  Math.min(topBuy.getOrder().getProductQuantity(), topSell.getOrder().getProductQuantity());
 					double tradePrice = topSell.getOrder().getProductPrice();
 				
-					AbstractAgent buyer = getAgentIDList().get(topBuy.getAgentID());
-					AbstractAgent seller = getAgentIDList().get(topSell.getAgentID());
+					AbstractAgentInterface buyer = getAgentIDList().get(topBuy.getAgentID());
+					AbstractAgentInterface seller = getAgentIDList().get(topSell.getAgentID());
 					
 					//Cancel transaction if inventory change cause product inventory or balance to fall outside of bounds
 					if(!buyer.receiveInventoryChange(product, tradeAmount, -1*(tradePrice * tradeAmount))) return;
@@ -62,11 +132,8 @@ public class BasicCommunicatingMarket extends BasicMarket {
 					Set<Integer> agentIDs = getAgentIDList().keySet();
 					for(Integer agentID : agentIDs)
 					{
-						getAgentIDList().get(agentID).setCurrentPrice(product, tradePrice);
+						getAgentIDList().get(agentID).setCurrentTrade(product, tradePrice, tradeAmount);
 					}
-					
-					test.println("trade amount: " + tradeAmount);
-					test.println("trade price: " + tradePrice);
 					
 					productbook.put("buy", buyQueue);
 					productbook.put("sell", sellQueue);
@@ -79,7 +146,7 @@ public class BasicCommunicatingMarket extends BasicMarket {
 					Set<Integer> agentIDs = getAgentIDList().keySet();
 					for(Integer agentID : agentIDs)
 					{
-						getAgentIDList().get(agentID).setCurrentPrice(product, (topBuy.getOrder().getProductPrice() - topSell.getOrder().getProductPrice())/2.0);
+						getAgentIDList().get(agentID).setCurrentTrade(product, (topBuy.getOrder().getProductPrice() - topSell.getOrder().getProductPrice())/2.0, 0);
 					}
 				}
 			} else if(topBuy != null) //topSell = null
@@ -87,7 +154,7 @@ public class BasicCommunicatingMarket extends BasicMarket {
 				Set<Integer> agentIDs = getAgentIDList().keySet();
 				for(Integer agentID : agentIDs)
 				{
-					getAgentIDList().get(agentID).setCurrentPrice(product, topBuy.getOrder().getProductPrice());
+					getAgentIDList().get(agentID).setCurrentTrade(product, topBuy.getOrder().getProductPrice(), 0);
 				}
 				
 			}else if(topSell != null) //topBuy = null
@@ -95,9 +162,10 @@ public class BasicCommunicatingMarket extends BasicMarket {
 				Set<Integer> agentIDs = getAgentIDList().keySet();
 				for(Integer agentID : agentIDs)
 				{
-					getAgentIDList().get(agentID).setCurrentPrice(product, topSell.getOrder().getProductPrice());
+					getAgentIDList().get(agentID).setCurrentTrade(product, topSell.getOrder().getProductPrice(), 0);
 				}
 			}
 		}
 	}
+	*/
 }

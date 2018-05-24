@@ -1,21 +1,20 @@
 package MarketBots.Agents.Implementations;
 
+import MarketBots.Agents.BasicAgent;
 import MarketBots.Agents.InternetAgentInterface;
 import MarketBots.Agents.InternetProviderInterface;
-import MarketBots.Communication.Message;
+import MarketBots.Communication.*;
 
-public class UtilInternetAgent extends BasicUtilityAgent implements InternetAgentInterface
+public class BasicInternetAgent extends BasicAgent implements InternetAgentInterface
 {
 	private int ID;
 	private InternetProviderInterface internet;
 	
-	public UtilInternetAgent(double balance, String[] products)
+	public BasicInternetAgent(double balance, String[] products)
 	{
 		super(balance, products);
-		this.ID = 0;
-		this.internet = null;
 	}
-
+	
 	public int getID()
 	{
 		return this.ID;
@@ -28,7 +27,6 @@ public class UtilInternetAgent extends BasicUtilityAgent implements InternetAgen
 	
 	public Message receiveMsg(Message msg) 
 	{
-		System.out.println(msg.getMessage());
 		return new Message(this.ID, msg.getFromID(), 
 				  		   "EXAMPLE_RESPONSE", "thanks for the message");
 	}

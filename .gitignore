@@ -1,2 +1,7 @@
+# Directories
 /nbproject/private/
 /build/
+/target/
+
+# File Types
+*.sec
